@@ -6,7 +6,7 @@ import (
     "fmt"
     "net"
     "strings"
-    //"reflect"
+    "flag"
     "text/template"
 )
 
@@ -87,12 +87,14 @@ const page = `<!DOCTYPE html>
         </html> `
 
 func main() {
-      // connect to this socket
-
-
+    serverPtr := flag.String("server", "127.0.0.1", "IP Server VPN")
+    portPtr := flag.String("port", "5555", "Port server VPN")
+    //skip_namePtr := flag.String("skip", "", "Skip dirs")
+    flag.Parse()
+    host := fmt.Sprint(*serverPtr, ":", *portPtr)
     tmp := make(map[string]Client)
     Session := make([]Client,0)
-    conn, err := net.Dial("tcp", "192.168.0.106:5555")
+    conn, err := net.Dial("tcp", host)
     checkError(err)
     defer conn.Close()
     writer(conn, "state\n")
