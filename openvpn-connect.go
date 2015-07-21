@@ -89,7 +89,7 @@ const page = `<!DOCTYPE html>
 func main() {
     serverPtr := flag.String("server", "127.0.0.1", "IP Server VPN")
     portPtr := flag.String("port", "5555", "Port server VPN")
-    //skip_namePtr := flag.String("skip", "", "Skip dirs")
+    //outputPtr := flag.String("file", "./vpn_page.html", "Output file name")
     flag.Parse()
     host := fmt.Sprint(*serverPtr, ":", *portPtr)
     tmp := make(map[string]Client)
