@@ -21,6 +21,11 @@ type Client struct {
     Download string
 }
 
+type Data struct {
+    Clients []Client
+    Update string
+}
+
 const page = `<!DOCTYPE html>
         <html lang="en">
           <head>
@@ -44,24 +49,24 @@ const page = `<!DOCTYPE html>
                   <h1>GoVPN Monitor</h1>
                 </div>
               <div class="page-header">
-                <h1>Update</h1>
+                <h3>Update: {{ .Update }}</h3>
               </div>
               <div class="row">
                 <div class="col-md-12">
                   <table class="table">
                     <thead>
                       <tr>
-                        <th>Client name</th>
-                        <th>VPN IP</th>
-                        <th>Real IP</th>
+                        <th>Hostname</th>
+                        <th>VPN IP Address</th>
+                        <th>Real IP Address</th>
                         <th>Real port</th>
                         <th>Upload</th>
                         <th>Download</th>
-                        <th>Connected</th>
+                        <th>Connected Since</th>
                       </tr>
                     </thead>
                     <tbody>
-                    {{range .}}
+                    {{range .Clients}}
                         <tr>
                             <td>{{.Name}}</td>
                             <td>{{.Vpn_ip}}</td>
@@ -89,7 +94,7 @@ const page = `<!DOCTYPE html>
 func main() {
     serverPtr := flag.String("server", "127.0.0.1", "IP Server VPN")
     portPtr := flag.String("port", "5555", "Port server VPN")
-    //outputPtr := flag.String("file", "./vpn_page.html", "Output file name")
+    outputPtr := flag.String("file", "./vpn_page.html", "Output file name")
     flag.Parse()
     host := fmt.Sprint(*serverPtr, ":", *portPtr)
     tmp := make(map[string]Client)
@@ -103,15 +108,14 @@ func main() {
     writer(conn, "status\n")
     status := strings.Split(reader(conn), "\r\n")
     //fmt.Println(status)
-    _ = parser(status, tmp)
+    update := parser(status, tmp)
     Session = map_to_slice(tmp)
     //fmt.Println(Session, update)
+    fd, err := os.Create(*outputPtr)
     t, _ := template.New("vpn").Parse(page)
-    err = t.Execute(os.Stdout, Session)
-
-    if err != nil {
-        panic(err)
-    }
+    data := Data{ Clients:Session, Update: update}
+    err = t.Execute(fd, data)
+    checkError(err)
 }
 
 
