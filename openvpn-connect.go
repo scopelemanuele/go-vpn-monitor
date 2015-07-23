@@ -105,10 +105,11 @@ func main() {
     writer(conn, "state\n")
     _ = reader(conn)
     //fmt.Println(state)
-    writer(conn, "status\n")
-    status := strings.Split(reader(conn), "\r\n")
-    //fmt.Println(status)
-    update := parser(status, tmp)
+    writer(conn, "status 3\n")
+
+    status3 := strings.Split(reader(conn), "\r")
+    //fmt.Println(status3)
+    update := Parser3(status3, tmp)
     Session = map_to_slice(tmp)
     //fmt.Println(Session, update)
     fd, err := os.Create(*outputPtr)
@@ -118,61 +119,35 @@ func main() {
     checkError(err)
 }
 
-
-
-
-func parser(lines []string, session map[string]Client) string{
+func Parser3(lines []string, session map[string]Client) string{
     var update string
-    virtual := false
-    name := false
     for i := range lines {
-        tmp := strings.Split(lines[i], ",")
-        if tmp[0] == "Updated" {
+        var c Client
+        tmp := strings.Split(lines[i], "\t")
+        if i == 1 {
             update = tmp[1]
         }
+        if i > 2 {
 
-        if tmp[0] == "ROUTING TABLE" {
-            continue
+            c.Name = tmp[1]
+            c.Vpn_ip = tmp[3]
+            tmp1 := strings.Split(tmp[2], ":")
+            c.Real_ip = tmp1[0]
+            c.Real_port = tmp1[1]
+
+            c.Upload = tmp[4]
+            c.Download = tmp[5]
+
+            if len(tmp) > 6{
+                c.Connected = tmp[6]
+            }
+            session[tmp[1]] = c
         }
-
-        if tmp[0] == "Virtual Address" {
-            virtual = true
-            name = false
-            continue
-        }
-
-        if tmp[0] == "Common Name" {
-            virtual = false
-            name = true
-            continue
-        }
-
-        if virtual == true && name == false {
-            //fmt.Println(tmp[1], len(tmp[1]))
-
-                c := session[tmp[1]]
-                c.Name = tmp[1]
-                c.Vpn_ip = tmp[0]
-                tmp1 := strings.Split(tmp[2], ":")
-                c.Real_ip = tmp1[0]
-                c.Real_port = tmp1[1]
-                session[tmp[1]] = c
-
-        }
-        if virtual == false && name == true {
-            //fmt.Println(tmp[0], len(tmp[0]))
-
-                c := session[tmp[0]]
-                c.Connected = tmp[4]
-                c.Upload = tmp[3]
-                c.Download = tmp[2]
-                session[tmp[0]] = c
-
-        }
-
     }
     return update
 }
+
+
 
 func map_to_slice(in map[string]Client) []Client {
     var out []Client
