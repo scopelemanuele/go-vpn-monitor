@@ -8,6 +8,7 @@ import (
     "strings"
     "flag"
     "text/template"
+    "github.com/abh/geoip"
 )
 
 
@@ -15,6 +16,7 @@ type Client struct {
     Name string
     Vpn_ip string
     Real_ip string
+    Country string
     Real_port string
     Connected string
     Upload string
@@ -59,6 +61,7 @@ const page = `<!DOCTYPE html>
                         <th>Hostname</th>
                         <th>VPN IP Address</th>
                         <th>Real IP Address</th>
+                        <th>Country</th>
                         <th>Real port</th>
                         <th>Upload</th>
                         <th>Download</th>
@@ -71,6 +74,7 @@ const page = `<!DOCTYPE html>
                             <td>{{.Name}}</td>
                             <td>{{.Vpn_ip}}</td>
                             <td>{{.Real_ip}}</td>
+                            <td>{{.Country}}</td>
                             <td>{{.Real_port}}</td>
                             <td>{{.Upload}}</td>
                             <td>{{.Download}}</td>
@@ -120,6 +124,12 @@ func main() {
 }
 
 func Parser3(lines []string, session map[string]Client) string{
+    file := "/usr/share/GeoIP/GeoIP.dat"
+    gi, err := geoip.Open(file)
+    if err != nil {
+        fmt.Printf("Could not open GeoIP database please install in /usr/share/GeoIP/\n")
+    }
+
     var update string
     for i := range lines {
         var c Client
@@ -137,7 +147,14 @@ func Parser3(lines []string, session map[string]Client) string{
 
             c.Upload = tmp[5]
             c.Download = tmp[4]
-
+            if gi != nil {
+                country, _ := gi.GetCountry(c.Real_ip)
+                if len(country) < 2 {
+                    c.Country = "Lan"
+                } else {
+                    c.Country = country
+                }
+            }
             if len(tmp) > 6{
                 c.Connected = tmp[6]
             }
