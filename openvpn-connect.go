@@ -135,8 +135,8 @@ func Parser3(lines []string, session map[string]Client) string{
             c.Real_ip = tmp1[0]
             c.Real_port = tmp1[1]
 
-            c.Upload = tmp[4]
-            c.Download = tmp[5]
+            c.Upload = tmp[5]
+            c.Download = tmp[4]
 
             if len(tmp) > 6{
                 c.Connected = tmp[6]
