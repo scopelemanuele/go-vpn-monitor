@@ -9,6 +9,7 @@ import (
     "flag"
     "text/template"
     "github.com/abh/geoip"
+    "strconv"
 )
 
 
@@ -55,14 +56,14 @@ const page = `<!DOCTYPE html>
               </div>
               <div class="row">
                 <div class="col-md-12">
-                  <table class="table">
+                  <table class="table-striped table">
                     <thead>
                       <tr>
                         <th>Hostname</th>
                         <th>VPN IP Address</th>
                         <th>Real IP Address</th>
-                        <th>Country</th>
                         <th>Real port</th>
+                        <th>Country</th>
                         <th>Upload</th>
                         <th>Download</th>
                         <th>Connected Since</th>
@@ -71,13 +72,13 @@ const page = `<!DOCTYPE html>
                     <tbody>
                     {{range .Clients}}
                         <tr>
-                            <td>{{.Name}}</td>
+                            <td><strong>{{.Name}}</strong></td>
                             <td>{{.Vpn_ip}}</td>
                             <td>{{.Real_ip}}</td>
-                            <td>{{.Country}}</td>
                             <td>{{.Real_port}}</td>
-                            <td>{{.Upload}}</td>
-                            <td>{{.Download}}</td>
+                            <td>{{.Country}}</td>
+                            <td style="color: red;">{{.Upload}}</td>
+                            <td style="color: green;">{{.Download}}</td>
                             <td>{{.Connected}}</td>
                         </tr>
                     {{end}}
@@ -144,9 +145,10 @@ func Parser3(lines []string, session map[string]Client) string{
             tmp1 := strings.Split(tmp[2], ":")
             c.Real_ip = tmp1[0]
             c.Real_port = tmp1[1]
-
-            c.Upload = tmp[5]
-            c.Download = tmp[4]
+            upload, _ := strconv.ParseInt(tmp[5], 10, 32)
+            download, _ := strconv.ParseInt(tmp[4], 10, 32)
+            c.Upload =  fmt.Sprint(upload/1000, " Kb")
+            c.Download = fmt.Sprint(download/1000, " Kb")
             if gi != nil {
                 country, _ := gi.GetCountry(c.Real_ip)
                 if len(country) < 2 {
