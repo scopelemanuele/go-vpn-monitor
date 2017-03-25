@@ -1,36 +1,36 @@
 package main
 
 import (
-    "io"
-    "os"
-    "fmt"
-    "net"
-    "strings"
-    "flag"
-    "text/template"
-    "github.com/abh/geoip"
-    "strconv"
+	"flag"
+	"fmt"
+	"io"
+	"net"
+	"os"
+	"strconv"
+	"strings"
+	"text/template"
+
+	"github.com/abh/geoip"
 )
 
-
 type Client struct {
-    Name string
-    Vpn_ip string
-    Real_ip string
-    Country string
-    Real_port string
-    Connected string
-    Upload string
-    Download string
+	Name      string
+	Vpn_ip    string
+	Real_ip   string
+	Country   string
+	Real_port string
+	Connected string
+	Upload    string
+	Download  string
 }
 
 type Data struct {
-    Clients []Client
-    Update string
+	Clients []Client
+	Update  string
 }
 
 const page = `<!DOCTYPE html>
-        <html lang="en">
+        <html lang="it">
           <head>
             <meta charset="utf-8">
             <meta http-equiv="X-UA-Compatible" content="IE=edge">
@@ -97,112 +97,132 @@ const page = `<!DOCTYPE html>
         </html> `
 
 func main() {
-    serverPtr := flag.String("server", "127.0.0.1", "IP Server VPN")
-    portPtr := flag.String("port", "5555", "Port server VPN")
-    outputPtr := flag.String("file", "./vpn_page.html", "Output file name")
-    flag.Parse()
-    host := fmt.Sprint(*serverPtr, ":", *portPtr)
-    tmp := make(map[string]Client)
-    Session := make([]Client,0)
-    conn, err := net.Dial("tcp", host)
-    checkError(err)
-    defer conn.Close()
-    writer(conn, "state\n")
-    _ = reader(conn)
-    //fmt.Println(state)
-    writer(conn, "status 3\n")
+	//Vars
+	tmp := make(map[string]Client)
+	Session := make([]Client, 0)
 
-    status3 := strings.Split(reader(conn), "\r")
-    //fmt.Println(status3)
-    update := Parser3(status3, tmp)
-    Session = map_to_slice(tmp)
-    //fmt.Println(Session, update)
-    fd, err := os.Create(*outputPtr)
-    t, _ := template.New("vpn").Parse(page)
-    data := Data{ Clients:Session, Update: update}
-    err = t.Execute(fd, data)
-    checkError(err)
+	//Command line params
+	serverPtr := flag.String("server", "127.0.0.1", "IP Server VPN")
+	portPtr := flag.String("port", "5555", "Port server VPN")
+	outputPtr := flag.String("file", "./vpn_page.html", "Output file name")
+	flag.Parse()
+
+	//Server connection
+	host := fmt.Sprint(*serverPtr, ":", *portPtr)
+	conn, err := net.Dial("tcp", host)
+	checkError(err)
+	defer conn.Close()
+
+	//Clear first data
+	buf := make([]byte, 256)
+	_, err = conn.Read(buf[:])
+	if err != nil {
+		fmt.Println("Init error!")
+	}
+
+	//Get data
+	writer(conn, "status 3\n")
+	status3 := strings.Split(reader(conn), "\r\n")
+	//fmt.Println("status: ", status3)
+	writer(conn, "exit\n")
+
+	//Parse data and make html
+	update := Parser(status3, tmp)
+	Session = map_to_slice(tmp)
+	fd, err := os.Create(*outputPtr)
+	t, _ := template.New("vpn").Parse(page)
+	data := Data{Clients: Session, Update: update}
+	err = t.Execute(fd, data)
+	checkError(err)
 }
 
-func Parser3(lines []string, session map[string]Client) string{
-    file := "/usr/share/GeoIP/GeoIP.dat"
-    gi, err := geoip.Open(file)
-    if err != nil {
-        fmt.Printf("Could not open GeoIP database please install in /usr/share/GeoIP/\n")
-    }
+func Parser(lines []string, session map[string]Client) string {
+	//Vars
+	var c Client
+	var update string
+	file := "/usr/share/GeoIP/GeoIP.dat"
 
-    var update string
-    for i := range lines {
-        var c Client
-        tmp := strings.Split(lines[i], "\t")
-        if i == 1 {
-            update = tmp[1]
-        }
-        if i > 2 {
+	//Init geoip
+	gi, err := geoip.Open(file)
+	if err != nil {
+		fmt.Printf("Could not open GeoIP database please install in /usr/share/GeoIP/\n")
+	}
 
-            c.Name = tmp[1]
-            c.Vpn_ip = tmp[3]
-            tmp1 := strings.Split(tmp[2], ":")
-            c.Real_ip = tmp1[0]
-            c.Real_port = tmp1[1]
-            upload, _ := strconv.ParseInt(tmp[5], 10, 32)
-            download, _ := strconv.ParseInt(tmp[4], 10, 32)
-            c.Upload =  fmt.Sprint(upload/1000, " Kb")
-            c.Download = fmt.Sprint(download/1000, " Kb")
-            if gi != nil {
-                country, _ := gi.GetCountry(c.Real_ip)
-                if len(country) < 2 {
-                    c.Country = "Lan"
-                } else {
-                    c.Country = country
-                }
-            }
-            if len(tmp) > 6{
-                c.Connected = tmp[6]
-            }
-            session[tmp[1]] = c
-        }
-    }
-    return update
+	//Parse Client
+	for i := range lines {
+		if getLineTitle(lines[i]) == "TIME" {
+			update = getLineData(lines[i])[0]
+		}
+		if getLineTitle(lines[i]) == "CLIENT_LIST" {
+			data := getLineData(lines[i])
+			c.Name = data[0]
+			c.Vpn_ip = data[2]
+			tmp := strings.Split(data[1], ":")
+			c.Real_ip = tmp[0]
+			c.Real_port = tmp[1]
+			upload, _ := strconv.ParseInt(data[5], 10, 32)
+			download, _ := strconv.ParseInt(data[4], 10, 32)
+			c.Upload = fmt.Sprint(upload/1000, " Kb")
+			c.Download = fmt.Sprint(download/1000, " Kb")
+			if gi != nil {
+				country, _ := gi.GetCountry(c.Real_ip)
+				if len(country) < 2 {
+					c.Country = "Lan"
+				} else {
+					c.Country = country
+				}
+			}
+			if len(data) > 6 {
+				c.Connected = data[6]
+			}
+			session[data[0]] = c
+			//fmt.Println(c)
+
+		}
+	}
+	return update
+
 }
 
+func getLineTitle(line string) string {
+	return strings.Split(line, "\t")[0]
+}
 
+func getLineData(line string) []string {
+	return strings.Split(line, "\t")[1:]
+}
 
 func map_to_slice(in map[string]Client) []Client {
-    var out []Client
-    for _, client := range in {
-
-        out = append(out, client)
-
-    }
-    return out
+	var out []Client
+	for _, client := range in {
+		out = append(out, client)
+	}
+	return out
 }
 
 func reader(r io.Reader) string {
-    buf := make([]byte, 1024)
-    var output string
-    for {
-        n , err := r.Read(buf[:])
-        if err != nil {
-            return ""
-        }
-        if strings.HasSuffix(string(buf[0:n]), "END\r\n") {
-            break
-        }
-        output = fmt.Sprint(output, string(buf[0:n]))
-    }
-    return output
+	buf := make([]byte, 256)
+	var output string
+	for {
+		n, err := r.Read(buf[:])
+		if err != nil {
+			return "--"
+		}
+		if strings.HasSuffix(string(buf[0:n]), "\n") {
+			break
+		}
+		output = fmt.Sprint(output, string(buf[0:n]))
+	}
+	return output
 }
-
 
 func writer(conn io.Writer, s string) {
-    _, err := conn.Write([]byte(s))
-    checkError(err)
+	_, err := conn.Write([]byte(s))
+	checkError(err)
 }
 
-
 func checkError(err error) {
-        if err != nil {
-                fmt.Println("Fatal error ", err.Error())
-        }
+	if err != nil {
+		fmt.Println("Fatal error ", err.Error())
+	}
 }
