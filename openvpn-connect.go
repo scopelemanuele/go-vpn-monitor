@@ -97,6 +97,7 @@ const page = `<!DOCTYPE html>
         </html> `
 
 func main() {
+<<<<<<< HEAD
 	//Vars
 	tmp := make(map[string]Client)
 	Session := make([]Client, 0)
@@ -128,6 +129,25 @@ func main() {
 
 	//Parse data and make html
 	update := Parser(status3, tmp)
+=======
+	serverPtr := flag.String("server", "192.168.0.106", "IP Server VPN")
+	portPtr := flag.String("port", "5555", "Port server VPN")
+	outputPtr := flag.String("file", "./vpn_page.html", "Output file name")
+	flag.Parse()
+	host := fmt.Sprint(*serverPtr, ":", *portPtr)
+	tmp := make(map[string]Client)
+	Session := make([]Client, 0)
+	conn, err := net.Dial("tcp", host)
+	checkError(err)
+	defer conn.Close()
+	writer(conn, "state\n")
+	_ = reader(conn)
+	writer(conn, "status 3\n")
+	status3 := strings.Split(reader(conn), "\r\n")
+	//fmt.Println("status3: ", status3)
+	writer(conn, "exit\n")
+	update := Parser3(status3, tmp)
+>>>>>>> af6e5f1124a91023500ef623f73c6da469c51d12
 	Session = map_to_slice(tmp)
 	fd, err := os.Create(*outputPtr)
 	t, _ := template.New("vpn").Parse(page)
@@ -136,6 +156,7 @@ func main() {
 	checkError(err)
 }
 
+<<<<<<< HEAD
 func Parser(lines []string, session map[string]Client) string {
 	//Vars
 	var c Client
@@ -143,11 +164,16 @@ func Parser(lines []string, session map[string]Client) string {
 	file := "/usr/share/GeoIP/GeoIP.dat"
 
 	//Init geoip
+=======
+func Parser3(lines []string, session map[string]Client) string {
+	file := "/usr/share/GeoIP/GeoIP.dat"
+>>>>>>> af6e5f1124a91023500ef623f73c6da469c51d12
 	gi, err := geoip.Open(file)
 	if err != nil {
 		fmt.Printf("Could not open GeoIP database please install in /usr/share/GeoIP/\n")
 	}
 
+<<<<<<< HEAD
 	//Parse Client
 	for i := range lines {
 		if getLineTitle(lines[i]) == "TIME" {
@@ -162,6 +188,23 @@ func Parser(lines []string, session map[string]Client) string {
 			c.Real_port = tmp[1]
 			upload, _ := strconv.ParseInt(data[5], 10, 32)
 			download, _ := strconv.ParseInt(data[4], 10, 32)
+=======
+	var update string
+	for i := range lines {
+		var c Client
+		tmp := strings.Split(lines[i], "\t")
+		if i == 1 {
+			update = tmp[1]
+		}
+		if i > 2 && len(tmp) == 9 {
+			c.Name = tmp[1]
+			c.Vpn_ip = tmp[3]
+			tmp1 := strings.Split(tmp[2], ":")
+			c.Real_ip = tmp1[0]
+			c.Real_port = tmp1[1]
+			upload, _ := strconv.ParseInt(tmp[5], 10, 32)
+			download, _ := strconv.ParseInt(tmp[4], 10, 32)
+>>>>>>> af6e5f1124a91023500ef623f73c6da469c51d12
 			c.Upload = fmt.Sprint(upload/1000, " Kb")
 			c.Download = fmt.Sprint(download/1000, " Kb")
 			if gi != nil {
@@ -172,6 +215,7 @@ func Parser(lines []string, session map[string]Client) string {
 					c.Country = country
 				}
 			}
+<<<<<<< HEAD
 			if len(data) > 6 {
 				c.Connected = data[6]
 			}
@@ -192,6 +236,17 @@ func getLineData(line string) []string {
 	return strings.Split(line, "\t")[1:]
 }
 
+=======
+			if len(tmp) > 6 {
+				c.Connected = tmp[6]
+			}
+			session[tmp[1]] = c
+		}
+	}
+	return update
+}
+
+>>>>>>> af6e5f1124a91023500ef623f73c6da469c51d12
 func map_to_slice(in map[string]Client) []Client {
 	var out []Client
 	for _, client := range in {
@@ -201,14 +256,24 @@ func map_to_slice(in map[string]Client) []Client {
 }
 
 func reader(r io.Reader) string {
+<<<<<<< HEAD
 	buf := make([]byte, 256)
+=======
+	buf := make([]byte, 1024)
+>>>>>>> af6e5f1124a91023500ef623f73c6da469c51d12
 	var output string
 	for {
 		n, err := r.Read(buf[:])
 		if err != nil {
+<<<<<<< HEAD
 			return "--"
 		}
 		if strings.HasSuffix(string(buf[0:n]), "\n") {
+=======
+			return ""
+		}
+		if strings.HasSuffix(string(buf[0:n]), "END\r\n") {
+>>>>>>> af6e5f1124a91023500ef623f73c6da469c51d12
 			break
 		}
 		output = fmt.Sprint(output, string(buf[0:n]))
